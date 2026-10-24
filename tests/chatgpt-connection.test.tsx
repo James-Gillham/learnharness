@@ -10,10 +10,18 @@ import type { ChatGPTStatus } from "../src/core/chatgpt.ts";
 
 const dom = parseHTML("<html><body></body></html>");
 Object.assign(globalThis, { React, window: dom.window, document: dom.document, Element: dom.window.Element, HTMLElement: dom.window.HTMLElement, CustomEvent: dom.window.CustomEvent, IS_REACT_ACT_ENVIRONMENT: true });
+Object.assign(globalThis, {
+	requestAnimationFrame: (callback: FrameRequestCallback) => setTimeout(() => callback(performance.now()), 0),
+	cancelAnimationFrame: (id: number) => clearTimeout(id),
+});
+Object.assign(dom.window, { innerWidth: 1280, innerHeight: 800 });
+dom.window.HTMLElement.prototype.scrollIntoView = () => {};
 const originalFetch = globalThis.fetch;
+const originalSetInterval = globalThis.setInterval;
+const originalClearInterval = globalThis.clearInterval;
 let root: Root | undefined;
 let host: HTMLElement;
-afterEach(async () => { if (root) await act(async () => root!.unmount()); root = undefined; host?.remove(); globalThis.fetch = originalFetch; });
+afterEach(async () => { if (root) await act(async () => root!.unmount()); root = undefined; host?.remove(); globalThis.fetch = originalFetch; globalThis.setInterval = originalSetInterval; globalThis.clearInterval = originalClearInterval; });
 
 async function mount(component: React.ReactNode) {
 	host = document.createElement("div"); document.body.appendChild(host); root = createRoot(host);
@@ -78,4 +86,47 @@ it("allows a subscription-only learner past the composer’s provider-connection
 	function Harness() { return <span>{useZeroKeys() ? "missing connection" : "ready to learn"}</span>; }
 	await mount(<Harness />);
 	assert.equal(host.textContent, "ready to learn");
+});
+
+it("waits for model discovery before advancing setup after OAuth connects the account", async () => {
+	const state: ChatGPTStatus = { profiles: [], activeId: null, pending: false, error: null };
+	let poll: (() => void) | undefined;
+	globalThis.setInterval = ((callback: () => void) => { poll = callback; return 1; }) as unknown as typeof setInterval;
+	globalThis.clearInterval = (() => {}) as typeof clearInterval;
+	Object.assign(window, { open: () => null });
+	let catalogReads = 0;
+	let discovered = false;
+	globalThis.fetch = async (input, init) => {
+		const route = String(input);
+		if (route === "/api/keys") return Response.json({ keys: [], providers: [] });
+		if (route === "/api/models") {
+			catalogReads++;
+			return Response.json({
+				providers: [{ id: "chatgpt-subscription", keyPresent: state.profiles.length > 0 }],
+				models: discovered ? [{ id: "discovered-model", name: "Discovered model", provider: "chatgpt-subscription", input: ["text", "image"], supportedLevels: ["off"], cost: { input: 0, output: 0 }, contextWindow: 64000 }] : [],
+				slots: { strong: null, cheap: null, vision: null },
+			});
+		}
+		assert.equal(route, "/api/chatgpt");
+		if (init?.method === "POST") {
+			state.pending = true;
+			// The account is persisted and usable before /models finishes.
+			state.profiles = [{ id: "account", email: "learner@example.test", connected: true, sharing: true }];
+			state.activeId = "account";
+			return Response.json({ url: "https://auth.openai.com/test-authorize" });
+		}
+		return Response.json(state);
+	};
+	await mount(<SetupDialog open onClose={() => {}} onDone={() => {}} />);
+	await click(button("Continue with ChatGPT"));
+	assert.ok(document.querySelector('[data-testid="setup-stage-keys"]'), "pending discovery must keep the polling component mounted");
+	assert.equal(catalogReads, 1, "do not request the empty catalog during discovery");
+	assert.ok(poll);
+	discovered = true;
+	state.pending = false;
+	await act(async () => { poll!(); });
+	assert.ok(document.querySelector('[data-testid="setup-stage-pickers"]'));
+	assert.equal(catalogReads, 2);
+	await click(document.querySelector<HTMLElement>('[data-testid="setup-trigger-strong"]')!);
+	assert.match(document.body.textContent!, /Discovered model/);
 });

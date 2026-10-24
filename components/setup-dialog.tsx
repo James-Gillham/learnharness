@@ -451,6 +451,7 @@ export function SetupDialog({
 					</div>
 				) : (
 					<div className="flex flex-col gap-4 overflow-y-auto px-6 py-5" data-testid="setup-stage-pickers">
+						{body?.models.length === 0 && <ChatGPTConnection />}
 						<p className="text-xs text-muted-foreground">
 							Pick the model for each tier. All three are required before chats can start.
 						</p>
@@ -522,7 +523,7 @@ export function SetupDialog({
 															}));
 															setOpenMenu(null);
 														}}
-														footer={catalog && catalog.length === 0 ? "No image-capable models. Add a provider key with access to a vision model." : undefined}
+														footer={catalog && catalog.length === 0 ? (slot === "vision" ? "No image-capable models. Refresh your connection or connect another provider." : "No models available. Refresh your connection and try again.") : undefined}
 													/>
 												</MenuShell>
 											)}

@@ -15,7 +15,10 @@ export function ChatGPTConnection() {
 	const accept = useCallback((value: ChatGPTStatus) => {
 		setStatus(value);
 		const signature = JSON.stringify([value.activeId, value.profiles, value.pending]);
-		if (previous.current !== null && previous.current !== signature) notifySettingsSaved("keys");
+		// OAuth saves the account before live model discovery finishes. Keep
+		// setup on this screen (and keep polling) until the entire attempt
+		// completes; advancing early unmounts us with an empty model list.
+		if (!value.pending && previous.current !== null && previous.current !== signature) notifySettingsSaved("keys");
 		previous.current = signature;
 		if (!value.pending) setAuthUrl(null);
 	}, []);
