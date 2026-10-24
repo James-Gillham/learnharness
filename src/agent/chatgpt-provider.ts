@@ -55,14 +55,18 @@ export function subscriptionModels(value: unknown, known: readonly Model<Api>[])
 		const levels = Array.isArray(row.supported_reasoning_levels)
 			? row.supported_reasoning_levels.map((v) => typeof v === "string" ? v : (v as { effort?: string }).effort).filter((v): v is string => !!v)
 			: null;
-		const thinkingLevelMap = levels ? Object.fromEntries(["off", "minimal", "low", "medium", "high", "xhigh", "max"].map((level) => [level, levels.includes(level) ? level : null])) as ThinkingLevelMap : base?.thinkingLevelMap;
+		const thinkingLevelMap = levels ? Object.fromEntries(["off", "minimal", "low", "medium", "high", "xhigh", "max"].map((level) => {
+			// OpenAI calls disabled reasoning "none"; Pi exposes it as "off".
+			const effort = level === "off" && levels.includes("none") ? "none" : level;
+			return [level, levels.includes(effort) ? effort : null];
+		})) as ThinkingLevelMap : base?.thinkingLevelMap;
 		const input: ("text" | "image")[] = Array.isArray(row.input_modalities)
 			? row.input_modalities.filter((v): v is "text" | "image" => v === "text" || v === "image")
 			: base?.input ?? ["text"];
 		return [subscriptionModel({
 			...base, id: row.slug, name: typeof row.display_name === "string" ? row.display_name : row.slug,
 			provider: CHATGPT_PROVIDER, api: "openai-responses", baseUrl: "https://api.openai.com/v1",
-			input, reasoning: levels ? levels.some((v) => v !== "off") : base?.reasoning ?? false,
+			input, reasoning: levels ? levels.some((v) => v !== "off" && v !== "none") : base?.reasoning ?? false,
 			thinkingLevelMap, contextWindow, maxTokens,
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		})];

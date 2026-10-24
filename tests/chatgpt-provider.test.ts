@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import { createModels, type Model, Type } from "@earendil-works/pi-ai";
+import { clampThinkingLevel, createModels, getSupportedThinkingLevels, type Model, Type } from "@earendil-works/pi-ai";
 import { createChatGPTProvider, chatGPTPayload, subscriptionModels } from "../src/agent/chatgpt-provider.ts";
 import { CHATGPT_PROVIDER } from "../src/core/chatgpt.ts";
 import { callCost } from "../src/core/prices.ts";
@@ -19,6 +19,24 @@ function sse(events: unknown[]) {
 }
 
 describe("ChatGPT subscription provider", () => {
+	it("keeps reasoning disabled when discovery reports the native none effort", async () => {
+		const [discovered] = subscriptionModels({ models: [{ slug: model.id, visibility: "list", supported_reasoning_levels: [{ effort: "none" }, { effort: "low" }, { effort: "high" }] }] }, [{ ...model, reasoning: true, thinkingLevelMap: { off: "none" } }]);
+		assert.ok(discovered);
+		assert.equal(discovered.thinkingLevelMap?.off, "none");
+		assert.ok(getSupportedThinkingLevels(discovered).includes("off"));
+		assert.equal(clampThinkingLevel(discovered, "off"), "off", "existing off selections must survive discovery");
+		globalThis.fetch = async (_input, init) => {
+			const body = JSON.parse(init!.body as string);
+			assert.equal(body.reasoning.effort, "none");
+			return sse([{ type: "response.completed", response: { id: "resp_off", status: "completed", output: [] } }]);
+		};
+		const models = createModels();
+		models.setProvider(createChatGPTProvider({ models: () => [discovered], token: async () => "subscription-token" }));
+		const result = await models.streamSimple(discovered, { messages: [{ role: "user", content: "Hello", timestamp: 0 }] }).result();
+		assert.equal(result.stopReason, "stop", result.errorMessage);
+		const [onlyNone] = subscriptionModels({ models: [{ slug: model.id, visibility: "list", supported_reasoning_levels: ["none"] }] }, [model]);
+		assert.equal(onlyNone?.reasoning, false);
+	});
 	it("discovers only visible account models, preserving discovery order and capability metadata", () => {
 		const result = subscriptionModels({ models: [
 			{ slug: model.id, display_name: "Account model", visibility: "list" },

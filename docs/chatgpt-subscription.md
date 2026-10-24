@@ -12,6 +12,8 @@ The user approved a local ChatGPT subscription provider with browser sign-in, pr
 
 Account model discovery restricts the picker to `visibility: "list"`. Capability metadata comes from discovery where present, otherwise from the installed Pi catalog for an exact model ID. Models with unknown context/output limits are omitted rather than assigned invented values. Saved catalogs permit restart without signing in again; **Refresh models** updates them.
 
+Concurrent discovery is deduplicated per profile: switching accounts starts discovery with the selected account's own credentials even while another account's request is pending. OpenAI's native `none` reasoning effort maps to Pi's `off` level, preserving disabled-reasoning selections through discovery and streaming.
+
 No access tokens are sent through UI responses, browser storage, command arguments, or environment variables. Token exchange errors omit upstream response bodies. Credentials are permission-protected plaintext, matching the existing local API-key storage approach; this is not OS-keychain encryption. Credentials live under excluded `data/`, so they are absent from source control and desktop server payloads. No DevKit code is vendored.
 
 Subscription calls retain token counts but contribute no estimated API dollar charge. The session summary and model menu display **ChatGPT plan**; actual allowance and optional credit controls remain in ChatGPT Settings. Existing API-provider selections continue using their chosen providers. No error path changes a subscription selection into API billing.

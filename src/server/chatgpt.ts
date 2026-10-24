@@ -29,13 +29,14 @@ interface Runtime {
 	pending?: Pending;
 	starting: boolean;
 	error: string | null;
-	refreshCatalog?: Promise<void>;
+	catalogRequests: Map<string, Promise<void>>;
 	requests: AbortController;
 }
 const key = Symbol.for("lh.chatgptRuntime");
 const globals = globalThis as typeof globalThis & { [key]?: Runtime };
-const runtime = globals[key] ??= { starting: false, error: null, requests: new AbortController() };
+const runtime: Runtime = globals[key] ??= { starting: false, error: null, requests: new AbortController(), catalogRequests: new Map() };
 runtime.requests ??= new AbortController();
+runtime.catalogRequests ??= new Map();
 
 function stopAccountRequests() {
 	runtime.requests.abort();
@@ -120,9 +121,10 @@ installProvider();
 
 export async function refreshChatGPTModels(): Promise<void> {
 	if (!chatGPTConnected()) return;
-	if (runtime.refreshCatalog) return runtime.refreshCatalog;
 	const id = activeProfileId();
-	runtime.refreshCatalog = (async () => {
+	const inflight = runtime.catalogRequests.get(id);
+	if (inflight) return inflight;
+	const request = (async () => {
 		const token = await accessToken(id);
 		const response = await fetch(`${RESOURCE}/models`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000) });
 		if (!response.ok) throw new Error(`ChatGPT model discovery failed (${response.status}). Reconnect or try again.`);
@@ -132,8 +134,9 @@ export async function refreshChatGPTModels(): Promise<void> {
 			const profile = record.profiles.find((p) => p.id === id);
 			if (profile?.access) profile.models = models;
 		});
-	})().finally(() => { runtime.refreshCatalog = undefined; });
-	return runtime.refreshCatalog;
+	})().finally(() => { runtime.catalogRequests.delete(id); });
+	runtime.catalogRequests.set(id, request);
+	return request;
 }
 
 function stopPending() {

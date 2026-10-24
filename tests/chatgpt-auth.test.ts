@@ -10,7 +10,7 @@ import { normalizeContext } from "@earendil-works/pi-ai";
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lh-chatgpt-test-"));
 process.env.LH_DATA_DIR = dir;
 const { chatgptStore, createChatGPTStore } = await import("../src/store/chatgpt.ts");
-const { startChatGPTSignIn, chatGPTStatus, handleChatGPTRequest, validateChatGPTCallback, chatGPTRequestAllowed, applyChatGPTTokens } = await import("../src/server/chatgpt.ts");
+const { startChatGPTSignIn, chatGPTStatus, handleChatGPTRequest, validateChatGPTCallback, chatGPTRequestAllowed, applyChatGPTTokens, refreshChatGPTModels, selectChatGPTProfile } = await import("../src/server/chatgpt.ts");
 const { piEngineForSpec } = await import("../src/agent/models.ts");
 const { providerKeyPresent } = await import("../src/server/keys.ts");
 const { modelCatalog } = await import("../src/server/model-catalog.ts");
@@ -66,6 +66,60 @@ async function signIn(profileId?: string) {
 }
 
 describe("ChatGPT sign-in and protected storage", () => {
+	it("discovers the newly selected account while another account's request is still in flight", async () => {
+		const previous = chatgptStore.read();
+		const fixtureFetch = globalThis.fetch;
+		const requested: string[] = [];
+		const releases = new Map<string, (response: Response) => void>();
+		const started = new Map<string, () => void>();
+		const accountAStarted = new Promise<void>((resolve) => started.set("Bearer account-a", resolve));
+		const accountBStarted = new Promise<void>((resolve) => started.set("Bearer account-b", resolve));
+		let accountA: Promise<void> | undefined;
+		let accountB: Promise<void> | undefined;
+		let duplicateB: Promise<void> | undefined;
+		let deadline: ReturnType<typeof setTimeout> | undefined;
+		try {
+			await chatgptStore.modify((record) => {
+				record.activeId = "a";
+				record.profiles = ["a", "b"].map((id) => ({ id, clientId: `client-${id}`, access: `account-${id}`, refresh: `refresh-${id}`, expires: Date.now() + 3600000, scopes: ["chatgpt.tokens.use.direct"], models: [] }));
+			});
+			globalThis.fetch = async (input, init) => {
+				assert.equal(String(input), "https://api.openai.com/v1/models");
+				const bearer = new Headers(init?.headers).get("authorization")!;
+				requested.push(bearer);
+				return new Promise<Response>((resolve) => { releases.set(bearer, resolve); started.get(bearer)?.(); });
+			};
+			accountA = refreshChatGPTModels();
+			await accountAStarted;
+			accountB = selectChatGPTProfile("b");
+			await Promise.race([
+				accountBStarted,
+				accountB.then(() => { throw new Error("Account switch finished without discovering B's models"); }),
+				new Promise<never>((_, reject) => { deadline = setTimeout(() => reject(new Error("Account B reused account A's in-flight discovery")), 5000); }),
+			]);
+			clearTimeout(deadline);
+			duplicateB = refreshChatGPTModels();
+			const response = (id: string) => Response.json({ models: [{ slug: `model-${id}`, display_name: `Account ${id}`, visibility: "list", context_window: 64000, max_output_tokens: 8000 }] });
+			// Finish B first: completing B must not interfere with A's request.
+			releases.get("Bearer account-b")!(response("b"));
+			await Promise.all([accountB, duplicateB]);
+			assert.equal(chatgptStore.read().activeId, "b");
+			assert.deepEqual(chatgptStore.read().profiles.find((p) => p.id === "b")!.models?.map((m) => m.id), ["model-b"]);
+			releases.get("Bearer account-a")!(response("a"));
+			await accountA;
+			assert.deepEqual(requested, ["Bearer account-a", "Bearer account-b"], "same-account refreshes deduplicate; different accounts never share credentials");
+			const final = chatgptStore.read();
+			assert.equal(final.activeId, "b");
+			assert.deepEqual(final.profiles.find((p) => p.id === "a")!.models?.map((m) => m.id), ["model-a"]);
+			assert.deepEqual(final.profiles.find((p) => p.id === "b")!.models?.map((m) => m.id), ["model-b"]);
+		} finally {
+			clearTimeout(deadline);
+			for (const release of releases.values()) release(Response.json({ models: [] }));
+			await Promise.allSettled([accountA, accountB, duplicateB]);
+			globalThis.fetch = fixtureFetch;
+			await chatgptStore.modify((record) => Object.assign(record, previous));
+		}
+	});
 	it("persists one host identifier and owner-only credentials while serializing concurrent updates", async () => {
 		const file = path.join(dir, "store-test", "auth.json");
 		const store = createChatGPTStore(file);
