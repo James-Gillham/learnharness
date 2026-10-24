@@ -86,6 +86,40 @@ describe("ChatGPT subscription provider", () => {
 		assert.equal(requests, 1);
 	});
 
+	it("overrides paid-API capabilities on a saved reasoning model and sends effort in request config", async () => {
+		// The account's cached model predates the subscription compatibility fix.
+		const cached: Model<"openai-responses"> = { ...model, reasoning: true, compat: { supportsMidConvoEffort: true, supportsToolSearch: true, supportsAdditionalTools: true, supportsExplicitPromptCacheMode: true, supportsMidConvoSystemMessages: true } };
+		let requests = 0;
+		globalThis.fetch = async (_input, init) => {
+			requests++;
+			const body = JSON.parse(init!.body as string);
+			assert.equal(body.reasoning.effort, "high");
+			assert.ok(!("prompt_cache_options" in body));
+			assert.ok(!("max_output_tokens" in body));
+			assert.ok(body.input.every((item: { type?: string; role?: string }) => item.type !== "configuration_update" && item.type !== "tool_search_call" && item.type !== "tool_search_output" && item.role !== "system"));
+			assert.ok(body.input.some((item: { type?: string }) => item.type === "additional_tools"), "mid-conversation tools use the supported input item");
+			return sse([{ type: "response.completed", response: { id: "resp_reasoning", status: "completed", output: [] } }]);
+		};
+		const models = createModels();
+		models.setProvider(createChatGPTProvider({ models: () => [cached], token: async () => "subscription-token" }));
+		const resolved = models.getModel(CHATGPT_PROVIDER, cached.id)! as Model<"openai-responses">;
+		assert.equal(resolved.compat?.supportsMidConvoEffort, false);
+		const result = await models.streamSimple(cached, {
+			systemPrompt: "Teach step by step", messages: [
+				{ role: "user", content: "Teach me about LLMs", timestamp: 0 },
+				{ role: "system", content: "A learning tool is now available", toolsAdded: [{ name: "quiz", description: "Ask a question", parameters: Type.Object({ question: Type.String() }) }], timestamp: 1 },
+			],
+		}, { reasoning: "high", maxTokens: 500, cacheRetention: "long" }).result();
+		assert.equal(result.stopReason, "stop", result.errorMessage);
+		assert.equal(requests, 1);
+	});
+
+	it("moves legacy configuration items into request reasoning while preserving transcript content", () => {
+		const payload = chatGPTPayload({ reasoning: { effort: "medium", summary: "auto" }, input: [{ role: "user", content: "Explain" }, { type: "configuration_update", reasoning: { effort: "high" } }] });
+		assert.deepEqual(payload.reasoning, { effort: "high", summary: "auto" });
+		assert.deepEqual(payload.input, [{ role: "user", content: "Explain" }]);
+	});
+
 	it("fails closed on an interrupted stream or missing subscription session", async () => {
 		process.env.OPENAI_API_KEY = "must-not-be-used";
 		globalThis.fetch = async () => sse([{ type: "response.created", response: { id: "unfinished" } }]);

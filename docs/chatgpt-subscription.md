@@ -26,6 +26,8 @@ The full repository tests, lint, TypeScript checks, production build, and standa
 
 The verified production build command in this environment is `npm run build -- --webpack`: Turbopack's PostCSS worker cannot bind its evaluation port here. The browser barrel no longer re-exports the unused Node-only coverage module, and prompt fragments are explicitly included in standalone tracing so webpack also produces a complete desktop payload.
 
+A live subscription check subsequently completed on GPT-6.1 Sol with reasoning enabled and a local function declared. It sent only a diagnostic request and received `OK`. This caught a gap in the original non-reasoning mock: Pi detects subscription restrictions only for the `openai` provider ID. The separate subscription provider now explicitly disables paid-API configuration updates, tool search, explicit prompt-cache options, and output-token caps on every dispatch, including cached model records. Thinking effort is sent in the request's reasoning configuration; mid-conversation tool additions use supported `additional_tools` items.
+
 ## Official protocol references
 
 - [Registration and sign-in](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)
