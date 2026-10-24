@@ -27,6 +27,11 @@ function turn(over: Partial<TurnUsage> = {}): TurnUsage {
 }
 
 describe("stats bar", () => {
+	it("labels subscription sessions with the ChatGPT plan instead of API dollars", () => {
+		const html = renderToStaticMarkup(<StatsBar turns={[turn({ model: "chatgpt-subscription:fixture" })]} />);
+		assert.match(html, /data-testid="stats-cost">ChatGPT plan<\/span>/);
+		assert.ok(!html.includes("$0.0000"));
+	});
 	it("renders NOTHING on the left when there are no turns yet (owner, wave 7 sweep)", () => {
 		const html = renderToStaticMarkup(
 			<StatsBar turns={[]} />,

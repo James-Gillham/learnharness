@@ -51,6 +51,7 @@ async function mount({ keyed = false, catalogFails = false } = {}) {
 		assert.equal(init?.method ?? "GET", "GET", "interaction tests must not write data");
 		const path = new URL(String(input), "http://localhost").pathname;
 		if (path === "/api/keys") return Response.json({ providers: [provider], keys: [] });
+		if (path === "/api/chatgpt") return Response.json({ profiles: [], activeId: null, pending: false, error: null });
 		assert.equal(path, "/api/models");
 		if (catalogFails) throw new Error("fixture catalog failure");
 		return Response.json({

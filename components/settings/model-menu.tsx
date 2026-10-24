@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import type { ModelCatalogEntry } from "@/src/core";
+import { CHATGPT_PROVIDER, type ModelCatalogEntry } from "@/src/core";
 import { fuzzyScore } from "@/src/core";
 import { formatTokens } from "@/components/usage-format";
 
@@ -125,8 +125,8 @@ export function ModelMenuList({
 						>
 							<span className="flex items-center justify-between gap-2">
 								<span className="truncate text-card-foreground">{m.name}</span>
-								<span className="shrink-0 tabular-nums text-muted-foreground" title="USD per 1M tokens in/out">
-									{priceLabel(m.cost)}
+								<span className="shrink-0 tabular-nums text-muted-foreground" title={m.provider === CHATGPT_PROVIDER ? "Uses your ChatGPT plan allowance" : "USD per 1M tokens in/out"}>
+									{m.provider === CHATGPT_PROVIDER ? "ChatGPT plan" : priceLabel(m.cost)}
 								</span>
 							</span>
 							<span className="flex items-center justify-between gap-2 text-muted-foreground">

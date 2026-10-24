@@ -78,8 +78,8 @@ export interface ModelCatalogResponse {
 /** One row of the providers surface. */
 export interface CatalogProvider {
 	id: string;
-	/** The env var whose presence federates this provider in. */
-	envVar: string;
-	/** Whether that var is currently present (env or auth file). */
+	/** The env var whose presence federates this provider in; null for OAuth. */
+	envVar: string | null;
+	/** Whether its key or ChatGPT plan permission is currently present. */
 	keyPresent: boolean;
 }

@@ -55,6 +55,13 @@ const nextConfig: NextConfig = {
 	// caught it; unit tests run unbundled and never see it.
 	outputFileTracingIncludes: {
 		"*": [
+			// Prompt fragments are discovered from directory entries at runtime.
+			// Include them explicitly for both supported Next.js builders.
+			"src/agent/prompts/**/*.md",
+			"src/agent/system-prompt.md",
+			// Next 16.3's standalone trace omits metadata helpers required by
+			// its router at startup under the webpack builder.
+			"node_modules/next/dist/lib/metadata/**/*.js",
 			// The standalone trace omitted this entire runtime-imported directory
 			// in 0.3.0, so importing puppeteer-core failed before browser startup.
 			"node_modules/@puppeteer/browsers/lib/browser-data/**/*.js",

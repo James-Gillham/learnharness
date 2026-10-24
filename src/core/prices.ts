@@ -1665,6 +1665,9 @@ export function callCost(
 	usage: { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number },
 	model: string,
 ): number | null {
+	// Subscription tokens have no per-call API charge. Account limits and
+	// optional credits are managed in ChatGPT, not estimated from API prices.
+	if (model.startsWith("chatgpt-subscription:")) return 0;
 	const price = PRICES[model];
 	if (!price) return null;
 	if (usage.inputTokens === undefined || usage.outputTokens === undefined) return null;

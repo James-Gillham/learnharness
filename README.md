@@ -48,13 +48,37 @@ Future teaching sessions can read the graph instead of starting from scratch. Pr
 - **Windows (x64):** run the installer. It is currently unsigned; Windows may show an “unknown publisher” or SmartScreen warning.
 - **Linux (x64):** make the AppImage executable and open it, or install the Debian/Ubuntu `.deb`.
 
-Add your provider API key and choose your models, then start a session with what you want to understand. LearnHarness supports 30+ provider options, including OpenAI, Anthropic, Google, DeepSeek, and OpenRouter. Optional dictation and web search use separate service keys.
+Connect your ChatGPT subscription with **Continue with ChatGPT**, or add a provider API key. Choose your models, then start a session with what you want to understand. LearnHarness supports 30+ provider options, including OpenAI, Anthropic, Google, DeepSeek, and OpenRouter. Optional dictation and web search use separate service keys.
+
+### Use your ChatGPT subscription
+
+This fork adds OpenAI's official [Sign in with ChatGPT](https://developers.openai.com/siwc/token-sharing-open-source) integration for local use. An eligible ChatGPT plan and permission to use it are required.
+
+1. In first-run setup or **Settings → Keys**, select **Continue with ChatGPT**.
+2. Complete sign-in in your system browser and allow ChatGPT plan usage. If the browser does not open, use the displayed sign-in link.
+3. Pick models from **chatgpt-subscription** for all three slots: Strong, Cheap, and Vision. These power teaching, practice, and background learning agents. Existing per-agent overrides and existing sessions keep their own model choices; change those to subscription models too if previously configured.
+4. Start a learning session. **Manage usage** opens ChatGPT's usage controls. Subscription requests never fall back to an API key. When your allowance is unavailable, the request fails; manage limits or reconnect to continue.
+
+The connection supports multiple saved accounts, reconnecting, model refresh, and sign-out. Tokens refresh automatically. ChatGPT plan usage does not grant access to existing ChatGPT conversations. Dictation and external web search still use their own services; leaving their keys unset keeps them unavailable.
+
+Credentials are stored separately from API keys in `data/chatgpt-auth.json` (under the desktop app's data directory when packaged). This file contains tokens, is written atomically with owner-only permissions (`0600`), and must not be shared. It is not encrypted at rest. The local server owns sign-in and token renewal; tokens never enter the renderer, browser storage, or `OPENAI_API_KEY`. Run one server per data directory so refresh-token rotation has a single owner. Remote hosting of this sign-in UI is not supported.
+
+The model picker refreshes from the selected account's live model list on sign-in and account switching, with a manual **Refresh models** action. Pi's model catalog supplies capability metadata when discovery omits it; a new model without known context/output limits is omitted until metadata is available. Model entries and session totals show **ChatGPT plan**, not estimated API prices. Requests use the public Responses API with streaming, local function tools, and no server-side conversation storage.
+
+To run this fork from source (Node.js 24 recommended):
+
+```sh
+npm ci
+npm run desktop:dev
+```
+
+The development app uses its own `LearnHarness-dev` profile. Packaged builds use this fork's release feed, so an upstream update cannot replace the integration. See [implementation notes](docs/chatgpt-subscription.md) for architecture and validation.
 
 All three platforms support in-app updates.
 
 ## Your keys, your data
 
-- **Your keys and models.** No LearnHarness subscription or markup. You pay your providers for usage; a live cost meter shows model costs.
+- **Your account and models.** No LearnHarness subscription or markup. Connect an eligible ChatGPT plan, or pay your API providers for usage; a live cost meter shows API model costs.
 - **Local storage.** Your chats, graph, settings, and API keys live on your machine. Learning records are plain files you can inspect.
 - **External services.** Models run through your configured providers. Model requests send the context needed for the task; web research and dictation also contact external services. Local storage does not mean offline processing.
 - **Inspectable behavior.** System prompts are visible and editable. The app is open source under the AGPL-3.0 license.
