@@ -16,6 +16,7 @@
  */
 
 export * from "./contracts.ts";
+export * from "./chatgpt.ts";
 export * from "./ports.ts";
 export * from "./chains.ts";
 export * from "./render-settings.ts";
@@ -70,7 +71,7 @@ export * from "./session-navigation.ts";
 export * from "./auth-keys.ts";
 // keyboard.ts: the shortcut registry + binding normalization (pure, browser-safe).
 export * from "./keyboard.ts";
-export * from "./coverage.ts";
+// coverage.ts uses node:crypto for fingerprints and stays server-only.
 // session-markdown.ts (2026-09-27 engine; first consumer 2026-10-06): the
 // ONE session→markdown formatter — the extractor's view and the user-facing
 // export share it. Pure, browser-safe.

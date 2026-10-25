@@ -8,8 +8,8 @@
  * keys unlock). Click opens the SetupDialog, whose stage derives to
  * the first-key screen on its own.
  *
- * Truth: GET /api/keys — a PROVIDER key present (env or file; tool keys
- * like Deepgram do not count — they unlock no models). Live updates ride
+ * Truth: GET /api/models — a provider connection may use an API key or
+ * ChatGPT plan permission. Tool keys like Deepgram do not count. Updates ride
  * the lh:settings-saved "keys" signal (keys-section dispatches after
  * save AND delete; the setup dialog's first-key screen dispatches on
  * its own save), the same re-read pattern chat.tsx uses for "models".
@@ -42,10 +42,10 @@ export function hasProviderKey(
 export function useZeroKeys(): boolean {
 	const [zeroKeys, setZeroKeys] = useState(false);
 	const read = useCallback(() => {
-		fetch("/api/keys")
-			.then((r) => r.json())
-			.then((body: { keys?: AuthKeyStatus[]; providers?: ProviderKeyInfo[] }) => {
-				setZeroKeys(!hasProviderKey(body.keys ?? [], body.providers));
+		fetch("/api/models")
+			.then((r) => { if (!r.ok) throw new Error("Could not load model connections"); return r.json(); })
+			.then((body: { providers?: { keyPresent: boolean }[] }) => {
+				setZeroKeys(!body.providers?.some((p) => p.keyPresent));
 			})
 			.catch(() => {});
 	}, []);
@@ -69,7 +69,7 @@ export function ZeroKeysPill({ onOpen, inline = false }: { onOpen: () => void; i
 			onClick={onOpen}
 			className="rounded-sm border border-border bg-card px-3 py-1.5 font-ui text-xs text-foreground transition-colors hover:border-muted-foreground/50 hover:bg-accent cursor-pointer"
 		>
-			Add a provider key
+			Connect an AI provider
 		</button>
 	);
 	return inline ? button : <div className="pointer-events-auto mb-2 flex justify-center">{button}</div>;

@@ -47,6 +47,7 @@ import { ProviderMenuList } from "@/components/settings/model-menu";
 import { defaultOrderLevel, populateLevel, THINKING_LABEL } from "@/components/thinking-default";
 import { ThinkingMenuList } from "@/components/settings/model-menu";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
+import { ChatGPTConnection } from "@/components/chatgpt-connection";
 
 /** The pickers' slot identity — same roster language as the Agent
  *  section's slot rows. */
@@ -147,7 +148,8 @@ export function SetupKeysBody({
 }) {
 	return (
 		<div className="flex flex-col gap-3 px-6 py-5" data-testid="setup-stage-keys">
-			<p className="text-sm text-foreground">Add a provider key.</p>
+			<ChatGPTConnection />
+			<p className="text-sm text-foreground">Or add a provider key.</p>
 			<p className="text-xs text-muted-foreground">
 				Choose your AI provider and paste its API key. You’ll pick your models next.
 			</p>
@@ -449,6 +451,7 @@ export function SetupDialog({
 					</div>
 				) : (
 					<div className="flex flex-col gap-4 overflow-y-auto px-6 py-5" data-testid="setup-stage-pickers">
+						{body?.models.length === 0 && <ChatGPTConnection />}
 						<p className="text-xs text-muted-foreground">
 							Pick the model for each tier. All three are required before chats can start.
 						</p>
@@ -520,7 +523,7 @@ export function SetupDialog({
 															}));
 															setOpenMenu(null);
 														}}
-														footer={catalog && catalog.length === 0 ? "No image-capable models. Add a provider key with access to a vision model." : undefined}
+														footer={catalog && catalog.length === 0 ? (slot === "vision" ? "No image-capable models. Refresh your connection or connect another provider." : "No models available. Refresh your connection and try again.") : undefined}
 													/>
 												</MenuShell>
 											)}

@@ -6,7 +6,7 @@
 		"name": "Amos Blomqvist",
 		"email": "255718537+amosblomqvist@users.noreply.github.com"
 	},
-	"homepage": "https://github.com/amosblomqvist/learnharness",
+	"homepage": "https://github.com/James-Gillham/learnharness",
 	"desktopName": "learnharness.desktop",
 	"description": "An agent harness for learning: adaptive teaching, practice, and a persistent knowledge graph.",
 	"type": "module",
@@ -46,6 +46,7 @@
 		"dagre-d3-es": "7.0.14",
 		"electron-updater": "^6.8.9",
 		"embla-carousel-react": "^8.6.0",
+		"jose": "^6.2.13",
 		"katex": "0.18.2",
 		"linkedom": "^0.18.13",
 		"lucide-react": "^1.33.0",
